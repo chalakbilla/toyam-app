@@ -1,0 +1,83 @@
+{
+  "expo": {
+    "name": "Toyam",
+    "slug": "toyam",
+    "scheme": "toyam",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#1B1420",
+    "splash": {
+      "backgroundColor": "#1B1420"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.toyam.app",
+      "infoPlist": {
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "WhatsApp Chat Export",
+            "LSHandlerRank": "Alternate",
+            "LSItemContentTypes": [
+              "public.zip-archive",
+              "com.pkware.zip-archive"
+            ]
+          }
+        ]
+      }
+    },
+    "android": {
+      "package": "com.toyam.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#1B1420"
+      },
+      "intentFilters": [
+        {
+          "action": "SEND",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "mimeType": "application/zip"
+            }
+          ]
+        },
+        {
+          "action": "SEND",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "mimeType": "application/octet-stream"
+            }
+          ]
+        }
+      ]
+    },
+    "extra": {
+      "googleClientId": "287495118260-jc7f8v61eiel39nqptfbkq977gvq4co3.apps.googleusercontent.com",
+      "eas": {
+        "projectId": "e4f9723c-9c13-4742-a76c-06f8cbd3ffa2"
+      }
+    },
+    "plugins": [
+      [
+        "expo-share-intent",
+        {
+          "androidIntentFilters": [
+            "application/zip",
+            "application/octet-stream"
+          ],
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsFileWithMaxCount": 1
+          }
+        }
+      ]
+    ]
+  }
+}
