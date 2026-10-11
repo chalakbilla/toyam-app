@@ -8,10 +8,11 @@ import { type, spacing } from '../theme/theme';
 import { useImport } from '../context/ImportContext';
 import { buildPoliciesFromMessages } from '../lib/policyBuilder';
 import { saveExtractedPolicies } from '../lib/policyStorage';
+import { cleanupExtractedDir } from '../lib/zipImporter';
 
 export default function SenderSelectScreen({ navigation, route }) {
   const { messageCount } = route.params || {};
-  const { zip, messages, participants, dateRange, selectedSenders, setSelectedSenders, setSaveResults } = useImport();
+  const { extractedDir, messages, participants, dateRange, selectedSenders, setSelectedSenders, setSaveResults } = useImport();
   const [loading, setLoading] = useState(false);
 
   const toggle = (name) => {
@@ -31,12 +32,13 @@ export default function SenderSelectScreen({ navigation, route }) {
       const filtered = messages.filter((m) => m.sender && senderSet.has(m.sender));
       const policies = buildPoliciesFromMessages(filtered);
       if (!policies.length) {
-        Alert.alert('No policies found', 'No message from the selected sender(s) matched the "starts with a number" rule.');
+        Alert.alert('No policies found', 'No message from the selected sender(s) started with "##" followed by a policy ID (e.g. "## ABC1234").');
         setLoading(false);
         return;
       }
-      const results = await saveExtractedPolicies(zip, policies);
+      const results = await saveExtractedPolicies(extractedDir, policies);
       setSaveResults(results);
+      cleanupExtractedDir(extractedDir); // media already copied into permanent policy folders
       navigation.navigate('Review');
     } catch (error) {
       Alert.alert('Extraction failed', error.message);

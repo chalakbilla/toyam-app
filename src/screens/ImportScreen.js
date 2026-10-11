@@ -7,39 +7,49 @@ import { GlassCard, StepHeader } from '../components/Cards';
 import { PrimaryButton, Chip, GhostButton } from '../components/Buttons';
 import { colors, type, spacing } from '../theme/theme';
 import { useImport } from '../context/ImportContext';
-import { ingestExportZip } from '../lib/zipImporter';
+import { ingestExportZip, ingestSharedItems, cleanupExtractedDir } from '../lib/zipImporter';
 
 export default function ImportScreen({ navigation, route }) {
-  const { incomingUri, incomingName } = route.params || {};
-  const [fileUri, setFileUri] = useState(incomingUri || null);
-  const [fileName, setFileName] = useState(incomingName || null);
+  const { incomingItems, incomingLabel } = route.params || {};
+  const [pickedFile, setPickedFile] = useState(null); // { uri, name } from the document picker
   const [dateFormat, setDateFormat] = useState('DMY');
   const [loading, setLoading] = useState(false);
   const importCtx = useImport();
+
+  const sharedItems = incomingItems || null;
+  const displayName = pickedFile ? pickedFile.name : incomingLabel || null;
 
   const pickFile = async () => {
     const result = await DocumentPicker.getDocumentAsync({ type: ['application/zip', '*/*'], copyToCacheDirectory: true });
     if (result.canceled) return;
     const asset = result.assets[0];
-    setFileUri(asset.uri);
-    setFileName(asset.name);
+    setPickedFile({ uri: asset.uri, name: asset.name });
   };
 
   const parse = async () => {
-    if (!fileUri) {
+    if (!pickedFile && !sharedItems) {
       Alert.alert('Choose a file', 'Pick the .zip WhatsApp gave you when you exported the chat.');
       return;
     }
     setLoading(true);
     try {
-      const { zip, messages, participants, messageCount, dateRange } = await ingestExportZip(fileUri, dateFormat);
+      if (importCtx.extractedDir) cleanupExtractedDir(importCtx.extractedDir); // drop any leftover from a previous import
+
+      const result = pickedFile
+        ? await ingestExportZip(pickedFile.uri, dateFormat)
+        : await ingestSharedItems(sharedItems, dateFormat);
+      const { extractedDir, messages, participants, messageCount, dateRange, warning } = result;
+
       if (!participants.length) {
+        await cleanupExtractedDir(extractedDir);
         Alert.alert('No senders found', 'This export only contains system messages — nothing to extract policies from.');
         setLoading(false);
         return;
       }
-      importCtx.setZip(zip);
-      importCtx.setSourceName(fileName);
+      if (warning) Alert.alert('Heads up', warning);
+
+      importCtx.setExtractedDir(extractedDir);
+      importCtx.setSourceName(pickedFile ? pickedFile.name : incomingLabel);
       importCtx.setMessages(messages);
       importCtx.setParticipants(participants);
       importCtx.setDateRange(dateRange);
@@ -65,8 +75,8 @@ export default function ImportScreen({ navigation, route }) {
 
           <GlassCard>
             <Text style={type.label}>EXPORTED FILE</Text>
-            <Text style={[type.body, styles.fileName]}>{fileName || 'No file selected yet'}</Text>
-            <GhostButton label={fileName ? 'Choose a different file' : 'Choose .zip file'} onPress={pickFile} />
+            <Text style={[type.body, styles.fileName]}>{displayName || 'No file selected yet'}</Text>
+            <GhostButton label={displayName ? 'Choose a different file' : 'Choose .zip file'} onPress={pickFile} />
           </GlassCard>
 
           <GlassCard style={{ marginTop: spacing.md }}>
@@ -79,7 +89,7 @@ export default function ImportScreen({ navigation, route }) {
           </GlassCard>
 
           <View style={{ marginTop: spacing.xl }}>
-            <PrimaryButton label="Upload & parse" onPress={parse} loading={loading} disabled={!fileUri} />
+            <PrimaryButton label="Upload & parse" onPress={parse} loading={loading} disabled={!pickedFile && !sharedItems} />
           </View>
         </ScrollView>
       </SafeAreaView>

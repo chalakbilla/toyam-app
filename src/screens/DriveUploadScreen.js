@@ -1,41 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import GradientBackground from '../components/GradientBackground';
 import { GlassCard, StepHeader } from '../components/Cards';
 import { PrimaryButton, GhostButton } from '../components/Buttons';
 import { colors, fonts, type, spacing, radius } from '../theme/theme';
-import { isSignedIn, signIn, signOut, uploadPolicyToDrive } from '../lib/googleDrive';
+import { uploadPolicyToDrive } from '../lib/googleDrive';
 
 export default function DriveUploadScreen({ route, navigation }) {
   const { policies } = route.params;
-  const [signedIn, setSignedIn] = useState(null);
-  const [connecting, setConnecting] = useState(false);
   const [folderName, setFolderName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(null);
   const [results, setResults] = useState(null);
-
-  useEffect(() => {
-    isSignedIn().then(setSignedIn);
-  }, []);
-
-  const connect = async () => {
-    setConnecting(true);
-    try {
-      await signIn();
-      setSignedIn(true);
-    } catch (error) {
-      Alert.alert('Google sign-in failed', error.message);
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  const disconnect = async () => {
-    await signOut();
-    setSignedIn(false);
-  };
 
   const upload = async () => {
     if (!folderName.trim()) {
@@ -68,22 +45,6 @@ export default function DriveUploadScreen({ route, navigation }) {
           <StepHeader step={1} total={1} title="Send to Google Drive" subtitle={`${policies.length} polic${policies.length === 1 ? 'y' : 'ies'} selected.`} />
 
           <GlassCard>
-            <Text style={type.label}>GOOGLE ACCOUNT</Text>
-            {signedIn === null ? (
-              <Text style={[type.bodyMuted, { marginTop: 8 }]}>Checking…</Text>
-            ) : signedIn ? (
-              <View style={styles.rowBetween}>
-                <Text style={[type.body, { marginTop: 8 }]}>Connected</Text>
-                <GhostButton label="Disconnect" onPress={disconnect} />
-              </View>
-            ) : (
-              <View style={{ marginTop: spacing.sm }}>
-                <PrimaryButton label="Connect Google Drive" onPress={connect} loading={connecting} />
-              </View>
-            )}
-          </GlassCard>
-
-          <GlassCard style={{ marginTop: spacing.md }}>
             <Text style={type.label}>DRIVE FOLDER NAME</Text>
             <Text style={[type.bodyMuted, { marginTop: 4, marginBottom: spacing.sm }]}>Created under "WhatsApp Policies" in your Drive.</Text>
             <TextInput
@@ -100,7 +61,6 @@ export default function DriveUploadScreen({ route, navigation }) {
               label={progress ? `Uploading ${progress.done}/${progress.total}…` : 'Upload to Drive'}
               onPress={upload}
               loading={uploading}
-              disabled={!signedIn}
             />
           </View>
 

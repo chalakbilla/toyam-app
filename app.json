@@ -2,9 +2,10 @@
   "expo": {
     "name": "Toyam",
     "slug": "toyam",
-    "scheme": "toyam",
+    "scheme": ["toyam", "com.toyam.app"],
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#1B1420",
     "splash": {
@@ -32,6 +33,7 @@
     "android": {
       "package": "com.toyam.app",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#1B1420"
       },
       "intentFilters": [
@@ -60,7 +62,9 @@
       ]
     },
     "extra": {
-      "googleClientId": "287495118260-jc7f8v61eiel39nqptfbkq977gvq4co3.apps.googleusercontent.com",
+      "googleClientId": "PASTE_DESKTOP_CLIENT_ID",
+      "googleClientSecret": "PASTE_CLIENT_SECRET",
+      "googleRefreshToken": "PASTE_REFRESH_TOKEN",
       "eas": {
         "projectId": "e4f9723c-9c13-4742-a76c-06f8cbd3ffa2"
       }

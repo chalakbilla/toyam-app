@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
+import { cleanupExtractedDir } from '../lib/zipImporter';
 
 const ImportContext = createContext(null);
 
 export function ImportProvider({ children }) {
-  const [zip, setZip] = useState(null); // JSZip instance
+  const [extractedDir, setExtractedDir] = useState(null); // on-disk folder from the last native unzip
   const [sourceName, setSourceName] = useState(null); // original file name, for display
   const [messages, setMessages] = useState([]); // parsed messages from the export
   const [participants, setParticipants] = useState([]);
@@ -13,7 +14,8 @@ export function ImportProvider({ children }) {
   const [selectedPolicyFolders, setSelectedPolicyFolders] = useState([]); // folder names ticked for Drive
 
   const reset = () => {
-    setZip(null);
+    if (extractedDir) cleanupExtractedDir(extractedDir);
+    setExtractedDir(null);
     setSourceName(null);
     setMessages([]);
     setParticipants([]);
@@ -25,8 +27,8 @@ export function ImportProvider({ children }) {
 
   const value = useMemo(
     () => ({
-      zip,
-      setZip,
+      extractedDir,
+      setExtractedDir,
       sourceName,
       setSourceName,
       messages,
@@ -43,7 +45,7 @@ export function ImportProvider({ children }) {
       setSelectedPolicyFolders,
       reset,
     }),
-    [zip, sourceName, messages, participants, dateRange, selectedSenders, saveResults, selectedPolicyFolders]
+    [extractedDir, sourceName, messages, participants, dateRange, selectedSenders, saveResults, selectedPolicyFolders]
   );
 
   return <ImportContext.Provider value={value}>{children}</ImportContext.Provider>;

@@ -6,15 +6,23 @@ import GradientBackground from '../components/GradientBackground';
 import { GlassCard, StepHeader, PolicyRow } from '../components/Cards';
 import { PrimaryButton, Chip } from '../components/Buttons';
 import { type, spacing } from '../theme/theme';
-import { POLICIES_ROOT, listSavedPolicyFolders } from '../lib/policyStorage';
+import { POLICIES_ROOT, listSavedPolicyFolders, readPolicyMeta } from '../lib/policyStorage';
 
 function parseFolderName(folder) {
   const m = /^(.+)_(\d{2}-\d{2}-\d{4})$/.exec(folder);
   return m ? { number: m[1], dateStr: m[2] } : { number: folder, dateStr: '' };
 }
 
+function metaLine(meta) {
+  const parts = [];
+  if (meta.timeStr) parts.push(meta.timeStr);
+  if (meta.mediaCount) parts.push(`${meta.mediaCount} attachment${meta.mediaCount === 1 ? '' : 's'}`);
+  return parts.join('  ·  ');
+}
+
 export default function SavedPoliciesScreen({ navigation }) {
   const [folders, setFolders] = useState([]);
+  const [metaByFolder, setMetaByFolder] = useState({});
   const [selected, setSelected] = useState(new Set());
   const [loading, setLoading] = useState(true);
 
@@ -23,8 +31,14 @@ export default function SavedPoliciesScreen({ navigation }) {
       let active = true;
       setLoading(true);
       listSavedPolicyFolders()
-        .then((names) => {
-          if (active) setFolders(names.sort().reverse());
+        .then(async (names) => {
+          const sorted = names.sort().reverse();
+          if (!active) return;
+          setFolders(sorted);
+          const entries = await Promise.all(
+            sorted.map(async (folder) => [folder, await readPolicyMeta(`${POLICIES_ROOT}/${folder}`)])
+          );
+          if (active) setMetaByFolder(Object.fromEntries(entries));
         })
         .finally(() => active && setLoading(false));
       return () => {
@@ -85,6 +99,7 @@ export default function SavedPoliciesScreen({ navigation }) {
                       status="saved"
                       selected={selected.has(folder)}
                       onToggle={() => toggle(folder)}
+                      meta={metaLine(metaByFolder[folder] || {})}
                     />
                   );
                 })}

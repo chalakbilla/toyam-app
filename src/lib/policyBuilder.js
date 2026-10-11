@@ -1,16 +1,31 @@
 // policyBuilder.js
 //
-// Exact same policy start/continue/end rules as the desktop app's
-// buildPoliciesFromMessages (chatExportImport.js) / fetchChatMessages
-// (server.js):
-//   - a non-media message whose text starts with optional "#" then digits
-//     opens a policy (the digits are the policy number)
+// Policy start/continue/end rules:
+//   - A policy OPENS only on a text message that starts with a DOUBLE HASH
+//     "##", then optional spaces/tabs, then an alphanumeric ID:
+//         "##MOTI3434"   "## 934MT"   "##   sadasbd3232"
+//     The "##" is compulsory - a bare "0631upasana" or "123455" is just chat,
+//     not a policy. (A lone "#" or three "###" does not count either.)
 //   - messages collect under that policy until one contains the standalone
-//     word "end"
+//     word "end" in any casing (END / end / End / eND ...)
 //   - media messages become "Type index dateTime" placeholder lines; the
 //     real file is copied from the export rather than re-downloaded
+//   - messages outside an open policy are ignored
 
 import { extname, classifyExtension } from './chatParser';
+
+// "##" (exactly two, at the very start) + optional non-newline whitespace + ID.
+// The ID must be followed by whitespace / end of message, so "##abc-def" or
+// "##12,34" are not half-matched.
+const POLICY_TOKEN_RE = /^##[^\S\n]*([A-Za-z0-9]{1,24})(?=\s|$)/;
+
+function extractPolicyNumber(body) {
+  const m = POLICY_TOKEN_RE.exec(body);
+  if (!m) return null;
+  const token = m[1];
+  if (/^end$/i.test(token)) return null; // "## END" closes a policy, it never opens one
+  return token;
+}
 
 function enGB(date) {
   return date
@@ -32,10 +47,14 @@ function dashDate(date) {
     .replace(/\//g, '-');
 }
 
+function hhmm(date) {
+  return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
 /**
  * @param {Array} messages - output of parseChatText, already filtered to the
  *   sender(s) the user picked.
- * @returns {Array<{number, dateStr, messages: Array<string|{placeholder, mediaFileName, destName}>}>}
+ * @returns {Array<{number, dateStr, timeStr, messages: Array<string|{placeholder, mediaFileName, destName}>}>}
  */
 export function buildPoliciesFromMessages(messages) {
   const policies = [];
@@ -43,9 +62,20 @@ export function buildPoliciesFromMessages(messages) {
   let policyMessages = [];
   let mediaIndex = 1;
 
+  // Two different policies can share the same ID on the same day. They map to the
+  // same folder (<number>_<date>), so without this the 2nd would be skipped as
+  // "already saved" and its content lost. Give repeats a -2, -3 ... suffix.
+  const seen = new Map();
+  const uniqueNumber = (number, dateStr) => {
+    const key = `${number}_${dateStr}`;
+    const n = (seen.get(key) || 0) + 1;
+    seen.set(key, n);
+    return n === 1 ? number : `${number}-${n}`;
+  };
+
   const flush = () => {
     if (currentPolicy) {
-      policies.push({ number: currentPolicy.number, dateStr: currentPolicy.dateStr, messages: policyMessages });
+      policies.push({ number: uniqueNumber(currentPolicy.number, currentPolicy.dateStr), dateStr: currentPolicy.dateStr, timeStr: currentPolicy.timeStr, messages: policyMessages });
     }
     policyMessages = [];
     mediaIndex = 1;
@@ -56,9 +86,10 @@ export function buildPoliciesFromMessages(messages) {
     const dateStr = dashDate(msg.date);
     const body = msg.body || '';
 
-    if (!msg.isMedia && /^#*\s*\d+/.test(body)) {
+    const policyNumber = !msg.isMedia ? extractPolicyNumber(body) : null;
+    if (policyNumber) {
       if (currentPolicy) flush();
-      currentPolicy = { number: /^#*\s*(\d+)/.exec(body)[1], dateStr };
+      currentPolicy = { number: policyNumber, dateStr, timeStr: hhmm(msg.date) };
       policyMessages.push(`${currentPolicy.number} ${dateTimeStr}\n${body}`);
     } else if (currentPolicy && !msg.isMedia && /\bend\b/i.test(body.trim())) {
       policyMessages.push(`${dateTimeStr}\n${body}`);

@@ -27,6 +27,12 @@
         <data android:scheme="toyam"/>
         <data android:scheme="com.toyam.app"/>
       </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.SEND"/>
+        <data android:mimeType="application/zip"/>
+        <data android:mimeType="application/octet-stream"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
       <intent-filter data-generated="true">
         <action android:name="android.intent.action.SEND"/>
         <data android:mimeType="application/zip"/>

@@ -36,13 +36,13 @@ export default function HomeScreen({ navigation }) {
           {incoming ? (
             <GlassCard style={styles.shareBanner}>
               <Text style={type.label}>RECEIVED FROM WHATSAPP</Text>
-              <Text style={[type.body, { marginTop: 6, marginBottom: 14 }]}>{incoming.fileName}</Text>
+              <Text style={[type.body, { marginTop: 6, marginBottom: 14 }]}>{incoming.label}</Text>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1, marginRight: spacing.sm }}>
                   <PrimaryButton
                     label="Continue"
                     onPress={() => {
-                      navigation.navigate('Import', { incomingUri: incoming.fileUri, incomingName: incoming.fileName });
+                      navigation.navigate('Import', { incomingItems: incoming.items, incomingLabel: incoming.label });
                       clear();
                     }}
                   />

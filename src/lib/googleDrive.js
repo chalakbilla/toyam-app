@@ -1,26 +1,18 @@
 // googleDrive.js
 //
-// Mobile equivalent of the desktop app's gdrive.js. The desktop version used
-// a "Desktop app" OAuth client (with a client secret) and a loopback
-// redirect - that flow doesn't exist on mobile. Instead this uses an
-// Android/iOS OAuth client (public, no secret) with PKCE via
-// expo-auth-session, and talks to the Drive v3 REST API directly with
-// fetch instead of the googleapis Node SDK.
+// No-login Drive upload. The app carries your own OAuth credentials
+// (client id, client secret, refresh token) in app.json -> expo.extra and
+// exchanges the refresh token for a short-lived access token on each upload,
+// so every upload lands in YOUR Drive and nobody has to sign in.
+// Anyone who extracts the APK can read these values - keep the APK private.
 //
-// Folder layout on Drive is identical to the desktop app:
+// Folder layout on Drive:
 //   WhatsApp Policies / <folder name you type> / <number>_<dateStr> / files...
 //
-// SETUP REQUIRED (see README): create an OAuth client of type "Android" or
-// "iOS" in the same Google Cloud project as client_secret.json, and put its
-// client ID below (or in app.json -> expo.extra).
+// Get the refresh token once with: node get-refresh-token.js  (see README_DRIVE.md)
 
-import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
-import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system';
 import Constants from 'expo-constants';
-
-WebBrowser.maybeCompleteAuthSession();
 
 const ROOT_FOLDER_NAME = 'WhatsApp Policies';
 const LOG_PATH = `${FileSystem.documentDirectory}drive_upload_log.log`;
@@ -36,111 +28,49 @@ export async function readUploadLog() {
   if (!info.exists) return '';
   return FileSystem.readAsStringAsync(LOG_PATH);
 }
-const TOKEN_KEY = 'toyam_google_token';
-const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 
-const discovery = {
-  authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-  tokenEndpoint: 'https://oauth2.googleapis.com/token',
-  revocationEndpoint: 'https://oauth2.googleapis.com/revoke',
-};
-
-function getClientId() {
+function getCreds() {
   const extra = Constants.expoConfig?.extra || {};
-  const id = extra.googleClientId;
-  if (!id) {
+  const { googleClientId, googleClientSecret, googleRefreshToken } = extra;
+  const missing = [googleClientId, googleClientSecret, googleRefreshToken].some(
+    (v) => !v || String(v).startsWith('PASTE_')
+  );
+  if (missing) {
     throw new Error(
-      'No Google OAuth client id configured. Add expo.extra.googleClientId in app.json - see README "Google Drive setup".'
+      'Drive credentials missing. Fill googleClientId, googleClientSecret and googleRefreshToken in app.json -> expo.extra, then rebuild.'
     );
   }
-  return id;
+  return { clientId: googleClientId, clientSecret: googleClientSecret, refreshToken: googleRefreshToken };
 }
 
-export async function getStoredToken() {
-  const raw = await SecureStore.getItemAsync(TOKEN_KEY);
-  return raw ? JSON.parse(raw) : null;
-}
+let cached = null; // { accessToken, expiresAt }
 
-async function storeToken(token) {
-  await SecureStore.setItemAsync(TOKEN_KEY, JSON.stringify(token));
-}
-
-export async function signOut() {
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
-}
-
-/**
- * Runs the interactive PKCE sign-in flow. Returns the token object
- * ({ accessToken, refreshToken, expiresIn, issuedAt }).
- */
-export async function signIn() {
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'toyam' });
-  const request = new AuthSession.AuthRequest({
-    clientId: getClientId(),
-    scopes: SCOPES,
-    redirectUri,
-    usePKCE: true,
-    responseType: AuthSession.ResponseType.Code,
-    extraParams: { access_type: 'offline', prompt: 'consent' },
-  });
-
-  await request.makeAuthUrlAsync(discovery);
-  const result = await request.promptAsync(discovery);
-
-  if (result.type !== 'success') {
-    throw new Error('Google sign-in was cancelled.');
-  }
-
-  const tokenResult = await AuthSession.exchangeCodeAsync(
-    {
-      clientId: getClientId(),
-      code: result.params.code,
-      redirectUri,
-      extraParams: { code_verifier: request.codeVerifier },
-    },
-    discovery
-  );
-
-  const token = {
-    accessToken: tokenResult.accessToken,
-    refreshToken: tokenResult.refreshToken,
-    expiresIn: tokenResult.expiresIn,
-    issuedAt: Date.now(),
-  };
-  await storeToken(token);
-  return token;
-}
-
-async function refreshToken(token) {
-  const tokenResult = await AuthSession.refreshAsync(
-    { clientId: getClientId(), refreshToken: token.refreshToken },
-    discovery
-  );
-  const next = {
-    accessToken: tokenResult.accessToken,
-    refreshToken: tokenResult.refreshToken || token.refreshToken,
-    expiresIn: tokenResult.expiresIn,
-    issuedAt: Date.now(),
-  };
-  await storeToken(next);
-  return next;
-}
-
-/** Returns a valid access token, refreshing (or asking to sign in) as needed. */
+/** Returns a valid access token, minted from the embedded refresh token. */
 export async function ensureAccessToken() {
-  let token = await getStoredToken();
-  if (!token) throw new Error('Not signed in to Google Drive yet.');
-  const ageMs = Date.now() - token.issuedAt;
-  const expiresMs = (token.expiresIn || 3600) * 1000;
-  if (ageMs > expiresMs - 60_000) {
-    token = await refreshToken(token);
+  if (cached && Date.now() < cached.expiresAt - 60_000) return cached.accessToken;
+  const { clientId, clientSecret, refreshToken } = getCreds();
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }).toString(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) {
+    throw new Error(`Google token error ${res.status}: ${data.error_description || data.error || 'unknown'}`);
   }
-  return token.accessToken;
+  cached = { accessToken: data.access_token, expiresAt: Date.now() + (data.expires_in || 3600) * 1000 };
+  return cached.accessToken;
 }
 
-export async function isSignedIn() {
-  return !!(await getStoredToken());
-}
+// Kept so existing screens keep working; there is no login any more.
+export async function isSignedIn() { return true; }
+export async function signIn() { return true; }
+export async function signOut() { return true; }
 
 async function driveFetch(url, accessToken, options = {}) {
   const res = await fetch(url, {
@@ -199,32 +129,48 @@ function guessMimeType(fileName) {
   return map[ext] || 'application/octet-stream';
 }
 
+/**
+ * Uploads one file to Drive in two steps:
+ *  1) create the file's metadata (name + parent) with a tiny JSON request
+ *  2) stream its bytes straight from disk to Drive via FileSystem.uploadAsync
+ *
+ * Previously this read the whole file into memory as a base64 string and
+ * built a multipart/related body by hand before calling fetch() - for a
+ * single large video from a WhatsApp export, that base64 string alone can
+ * be large enough to spike memory and visibly stall the UI (each upload
+ * runs one at a time, so it doesn't compound across files the way the old
+ * zip export did, but a single big file is still a real risk). uploadAsync
+ * hands the file to native code, which streams it from disk to the network
+ * socket directly - the bytes never pass through the JS runtime.
+ */
 async function uploadFile(fileUri, fileName, parentId, accessToken) {
-  const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
-  const boundary = 'toyam-boundary-' + Date.now();
-  const metadata = { name: fileName, parents: [parentId] };
   const mimeType = guessMimeType(fileName);
 
-  const body =
-    `--${boundary}\r\n` +
-    `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-    `${JSON.stringify(metadata)}\r\n` +
-    `--${boundary}\r\n` +
-    `Content-Type: ${mimeType}\r\n` +
-    `Content-Transfer-Encoding: base64\r\n\r\n` +
-    `${base64}\r\n` +
-    `--${boundary}--`;
-
-  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+  const created = await driveFetch('https://www.googleapis.com/drive/v3/files?fields=id,webViewLink', accessToken, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
-    body,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: fileName, parents: [parentId] }),
   });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Upload failed (${res.status}): ${text.slice(0, 200)}`);
+
+  const uploadResult = await FileSystem.uploadAsync(
+    `https://www.googleapis.com/upload/drive/v3/files/${created.id}?uploadType=media&fields=id,webViewLink`,
+    fileUri,
+    {
+      httpMethod: 'PATCH',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': mimeType },
+    }
+  );
+
+  if (uploadResult.status < 200 || uploadResult.status >= 300) {
+    throw new Error(`Upload failed (${uploadResult.status}): ${(uploadResult.body || '').slice(0, 200)}`);
   }
-  return res.json();
+
+  try {
+    return JSON.parse(uploadResult.body);
+  } catch {
+    return created;
+  }
 }
 
 /**
