@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Toyam helps you organize WhatsApp chat exports into policy files on your device, with optional Google Drive upload.">
+  <title>Toyam | Home and Privacy</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #20291f;
+      --muted: #596454;
+      --paper: #f4f6ee;
+      --panel: #ffffff;
+      --leaf: #315a43;
+      --line: #d7dfd2;
+      --accent: #d5e4cc;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: radial-gradient(ellipse at 85% 5%, #e3ecd9 0, transparent 36%), var(--paper);
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      line-height: 1.65;
+    }
+
+    main {
+      width: min(760px, calc(100% - 36px));
+      margin: 8vh auto;
+    }
+
+    header {
+      padding: clamp(26px, 7vw, 60px);
+      background: var(--leaf);
+      color: #fff;
+      border-radius: 8px 8px 0 0;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--accent);
+      font: 700 12px/1.4 Arial, sans-serif;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(42px, 9vw, 70px);
+      font-weight: 400;
+      line-height: 1;
+    }
+
+    header p:last-child {
+      max-width: 510px;
+      margin: 20px 0 0;
+      color: #edf2e9;
+      font-size: 18px;
+    }
+
+    .content {
+      padding: clamp(24px, 7vw, 54px);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-top: 0;
+      border-radius: 0 0 8px 8px;
+    }
+
+    h2 {
+      margin: 32px 0 8px;
+      color: var(--leaf);
+      font-size: 25px;
+      font-weight: 400;
+      line-height: 1.25;
+    }
+
+    h2:first-child { margin-top: 0; }
+    p { margin: 10px 0; }
+    ul { padding-left: 22px; }
+    li { padding: 3px 0; }
+
+    a { color: #24583b; text-underline-offset: 3px; }
+    a:focus-visible { outline: 3px solid #87a875; outline-offset: 3px; }
+
+    footer {
+      margin-top: 28px;
+      color: var(--muted);
+      font: 14px/1.6 Arial, sans-serif;
+    }
+
+    @media (max-width: 520px) {
+      main { margin: 18px auto; }
+      header, .content { padding: 25px 22px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">WhatsApp export organizer</p>
+      <h1>Toyam</h1>
+      <p>Organize policies from a WhatsApp chat export and keep the resulting files on your device or send selected files to Google Drive.</p>
+    </header>
+
+    <article class="content" aria-label="Toyam information and privacy policy">
+      <h2>Privacy Policy</h2>
+      <p><strong>Last updated: October 11, 2026</strong></p>
+      <p>Toyam processes chat export files you choose to open. Chat text and extracted policy files are stored locally on your device. Toyam does not operate a service that receives your chat exports.</p>
+
+      <h2>Sharing and Google Drive</h2>
+      <p>If you choose to share or upload files, the files you select are sent to the destination you choose. For Google Drive uploads, Toyam transmits the selected policy files to Google Drive. Google handles those files under its own terms and privacy policy. You can also use Toyam without choosing a Drive upload.</p>
+
+      <h2>Information and control</h2>
+      <p>Toyam does not intentionally collect analytics or maintain an account for you. App files and upload activity logs are stored on your device. You can remove saved files and logs using the app or your device's storage controls. Shared or uploaded copies are managed separately by the service or recipient you chose.</p>
+
+      <h2>Children</h2>
+      <p>Toyam is a general-purpose utility and is not designed specifically for children.</p>
+
+      <h2>Contact</h2>
+      <p>For questions about Toyam or this policy, contact the project maintainer through the <a href="https://github.com/chalakbilla/toyam-app/issues">Toyam GitHub Issues page</a>.</p>
+
+      <footer>
+        Toyam is an independent application and is not affiliated with, endorsed by, or sponsored by WhatsApp, Meta, or Google.
+      </footer>
+    </article>
+  </main>
+</body>
+</html>
